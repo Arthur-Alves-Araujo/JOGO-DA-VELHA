@@ -1,0 +1,141 @@
+```html
+     <div class="hint">Dica: clique (ou toque) nas casas. X começa.</div>
+      <div id="score" aria-label="Placar"></div>
+    </footer>
+  </main>
+
+  <script>
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const resetBtn = document.getElementById('reset');
+    const modeSel = document.getElementById('mode');
+    const scoreEl = document.getElementById('score');
+
+    const LINES = [
+      [0,1,2],[3,4,5],[6,7,8],
+      [0,3,6],[1,4,7],[2,5,8],
+      [0,4,8],[2,4,6]
+    ];
+
+    let state, score;
+
+    function init() {
+      score = { X: 0, O: 0, D: 0 };
+      newGame(true);
+      renderScore();
+    }
+
+    function newGame(first = false) {
+      state = {
+        cells: Array(9).fill(null),
+        turn: 'X',
+        done: false,
+        winner: null,
+        winLine: null,
+      };
+      if (first) buildBoard();
+      render();
+
+      if (isCpuTurn()) setTimeout(cpuMove, 180);
+    }
+
+    function buildBoard() {
+      boardEl.innerHTML = '';
+      for (let i = 0; i < 9; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'cell';
+        btn.type = 'button';
+        btn.setAttribute('role', 'gridcell');
+        btn.setAttribute('aria-label', `Casa ${i+1}`);
+        btn.dataset.i = String(i);
+        btn.addEventListener('click', () => onCell(i));
+        boardEl.appendChild(btn);
+      }
+    }
+
+    function onCell(i) {
+      if (state.done) return;
+      if (state.cells[i] != null) return;
+      if (isCpuTurn()) return; // evita jogar no turno da CPU
+
+      place(i, state.turn);
+
+      if (!state.done && isCpuTurn()) setTimeout(cpuMove, 220);
+    }
+
+    function place(i, player) {
+      if (state.cells[i] != null || state.done) return;
+      state.cells[i] = player;
+
+      const res = evaluate(state.cells);
+      if (res.winner) {
+        state.done = true;
+        state.winner = res.winner;
+        state.winLine = res.line;
+        score[res.winner]++;
+      } else if (res.draw) {
+        state.done = true;
+        state.winner = 'D';
+        score.D++;
+      } else {
+        state.turn = (player === 'X') ? 'O' : 'X';
+      }
+
+      render();
+      renderScore();
+    }
+
+    function evaluate(cells) {
+      for (const line of LINES) {
+        const [a,b,c] = line;
+        if (cells[a] && cells[a] === cells[b] && cells[a] === cells[c]) {
+          return { winner: cells[a], line };
+        }
+      }
+      const draw = cells.every(v => v != null);
+      return { winner: null, line: null, draw };
+    }
+
+    function render() {
+      if (state.done) {
+        if (state.winner === 'D') statusEl.textContent = 'Deu velha (empate).';
+        else statusEl.textContent = `Vitória do ${state.winner}!`;
+      } else {
+        const mode = modeSel.value;
+        const cpuSide = (mode === 'cpu_easy' || mode === 'cpu_hard') ? 'O' : null;
+        const who = (cpuSide && state.turn === cpuSide) ? 'CPU' : state.turn;
+        statusEl.textContent = `Vez de: ${who}`;
+      }
+
+      [...boardEl.children].forEach((btn, i) => {
+        const v = state.cells[i];
+        btn.textContent = v ? v : '';
+        btn.classList.toggle('x', v === 'X');
+        btn.classList.toggle('o', v === 'O');
+        btn.classList.toggle('win', state.winLine ? state.winLine.includes(i) : false);
+        btn.disabled = state.done || v != null || isCpuTurn();
+      });
+    }
+
+    function renderScore() {
+      scoreEl.textContent = `Placar — X: ${score.X} | O: ${score.O} | Empates: ${score.D}`;
+    }
+
+    function isCpuTurn() {
+      const mode = modeSel.value;
+      if (mode !== 'cpu_easy' && mode !== 'cpu_hard') return false;
+      return !state.done && state.turn === 'O';
+    }
+
+    function cpuMove() {
+      if (!isCpuTurn()) return;
+
+      const mode = modeSel.value;
+      const empties = state.cells
+        .map((v,i) => (v == null ? i : null))
+        .filter(v => v != null);
+
+      if (empties.length === 0) return;
+
+      let move;
+```
